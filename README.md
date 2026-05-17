@@ -1,10 +1,16 @@
 # hermes-model-switch
 
-Hermes Agent 模型切换工具集，支持多模型的一键切换、自动路由、增删改查管理。
+Hermes Agent 模型切换工具集，支持多模型的一键切换、增删改查管理。
+
+## 功能特性
+
+- **预验证切换**：切换前先 curl 验证目标模型是否可达，不可达不写配置
+- **自动回退**：验证失败自动回退到上一个可用版本
+- **model_aliases 同步**：切换时同步更新别名路由，避免请求走错 provider
+- **配置二次验证**：写入后重新读回确认关键字段正确
+- **备份机制**：每次切换自动备份，保留历史版本
 
 ## 组件概览
-
-本仓库包含一组配套使用的技能：
 
 | 技能 | 用途 | 触发词 |
 |------|------|--------|
@@ -45,6 +51,67 @@ chmod +x ~/.hermes/bin/hermes_switch_model.py
 └── config.yaml   # 主配置，引用 .env 中的变量
 ```
 
+## 切换流程（详细说明）
+
+切换操作分三步执行，**验证失败不写配置，保持现状**：
+
+### 第一步：预验证
+
+用 curl 测试目标模型是否可达，返回含 `"choices"` 即为通过。
+
+```bash
+# 示例：验证 MiniMax
+curl -s https://api.svips.org/v1/chat/completions \
+  -H "Authorization: Bearer $SVIPS_API_KEY_MINIMAX" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"MiniMax-M2.7-highspeed","messages":[{"role":"user","content":"hi"}],"max_tokens":5}'
+```
+
+返回 `503` / `401` / `ModelNotOpen` 等均为验证失败，**不写配置，直接退出**。
+
+### 第二步：写入配置 + 同步 model_aliases
+
+验证通过后，脚本同时更新三处：
+1. `model.default` / `provider` / `base_url` / `api_key`（主配置）
+2. `custom_providers` 列表中的 provider 条目
+3. `model_aliases` 中对应 alias 的 provider/base_url/model（避免路由断裂）
+
+同时自动备份当前配置到 `~/.hermes/backups/`。
+
+### 第三步：二次验证
+
+写入后重新读回 `config.yaml`，确认关键字段（default / provider / api_key）与预期一致。
+
+不一致时自动还原备份并报错，**保证配置不会写坏**。
+
+### 完整流程图
+
+```
+用户触发切换
+     │
+     ▼
+第一步：curl 预验证模型可达性
+     │
+  ┌──┴──┐
+  │     │
+失败   通过
+  │     │
+  │     ▼
+  │ 第二步：备份配置 → 更新 config.yaml（三处同步）
+  │     │
+  │     ▼
+  │ 第三步：二次验证关键字段
+  │     │
+  │  ┌──┴──┐
+  │  │     │
+  │失败  通过
+  │  │     │
+  │  ▼     ▼
+  │回退   完成，新会话生效
+  ▼
+  还原备份，报错退出
+```
+
 ## 快速使用
 
 ### 切换模型
@@ -64,7 +131,7 @@ python3 ~/.hermes/bin/hermes_switch_model.py <标识>
 
 ### 添加新模型
 
-用户提供 base_url、model_id、api_key，我按规范生成变量名并修改脚本，步骤如下：
+用户提供 base_url、model_id、api_key，我按规范生成变量名并修改脚本：
 
 **1. 生成命名**（遵循现有规范）：
 
@@ -112,7 +179,7 @@ python3 ~/.hermes/bin/hermes_switch_model.py <标识>
 >
 > 我：「当前支持4个模型：GPT-5.4 (gpt)、GLM-5.1 (glm)、MiniMax (minimax)、DeepSeek (ds)」
 
-### 查看当前模型列表
+## 现有模型参考
 
 | 标识 | provider | env 变量 |
 |------|----------|----------|
@@ -135,10 +202,13 @@ hermes-model-switch/
 ├── CHANGELOG.md
 ├── LICENSE
 ├── scripts/
-│   └── hermes_switch_model.py   # 模型切换脚本
+│   └── hermes_switch_model.py   # 模型切换脚本（含切换流程逻辑）
 ├── skill/
 │   ├── hermes-model-switch/     # 切换技能文档
-│   └── hermes-model-manage/     # 增删改查技能文档（含 API Key 修改）
+│   ├── hermes-model-manage/     # 增删改查技能文档（含 API Key 修改）
+│   └── references/
+│       ├── quickstart.md
+│       └── bug5-backup-content-mismatch.md
 └── tools/
     └── model-diagnosis.py       # API Key 诊断工具
 ```
@@ -150,7 +220,7 @@ hermes-model-switch/
   │
   ├── "切换到GPT"       → hermes-model-switch  → 预验证 → 写配置
   ├── "加一个新模型"    → hermes-model-manage → 增删改
-  └── "换个API Key"     → env-param           → 改 .env
+  └── "换个API Key"     → hermes-model-manage → 改 .env
 ```
 
 ## 开发约定
