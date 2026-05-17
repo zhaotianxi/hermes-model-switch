@@ -1,14 +1,24 @@
 # hermes-model-switch
 
-Hermes Agent 大模型配置管理工具，支持模型切换和增删改查。
+Hermes Agent 大模型配置管理工具，支持**模型切换**和**配置增删改查**两大能力。
 
 ## 功能特性
 
-- **预验证切换**：切换前先 curl 验证目标模型是否可达，不可达不写配置
+### 一、模型切换
+
+- **预验证切换**：切换前先 curl 验证目标模型可达性，不可达不写配置
 - **自动回退**：验证失败自动回退到上一个可用版本
 - **model_aliases 同步**：切换时同步更新别名路由，避免请求走错 provider
 - **配置二次验证**：写入后重新读回确认关键字段正确
 - **备份机制**：每次切换自动备份，保留历史版本
+
+### 二、配置管理
+
+- **增**：添加新模型（写入 .env + 修改脚本三处配置）
+- **删**：删除模型配置（从脚本三处移除，.env key 可选保留）
+- **改**：修改模型配置（精准替换对应字段，不动其他内容）
+- **查**：列出当前所有模型（提取脚本 TARGETS 字典）
+- **规范命名**：provider name / env 变量 / alias 均有统一命名规范
 
 ## 安装
 
@@ -38,7 +48,7 @@ chmod +x ~/.hermes/bin/hermes_switch_model.py
 └── config.yaml   # 主配置，引用 .env 中的变量
 ```
 
-## 切换流程（详细说明）
+## 切换流程
 
 切换操作分三步执行，**验证失败不写配置，保持现状**：
 
@@ -59,6 +69,7 @@ curl -s https://api.svips.org/v1/chat/completions \
 ### 第二步：写入配置 + 同步 model_aliases
 
 验证通过后，脚本同时更新三处：
+
 1. `model.default` / `provider` / `base_url` / `api_key`（主配置）
 2. `custom_providers` 列表中的 provider 条目
 3. `model_aliases` 中对应 alias 的 provider/base_url/model（避免路由断裂）
@@ -154,7 +165,7 @@ python3 ~/.hermes/bin/hermes_switch_model.py <标识>
 >
 > 我：「好，只改 `TARGETS['glm']['verify_model']` 这一处，其他不动。开始修改...」
 
-> 用户：「换个 API Key，MiniMax 的 key 换成 `sk-new-key-xxx`」
+> 用户：「换个 API Key，MiniMax 的 key 换成新值」
 >
 > 我：「好，修改 `.env` 中 `SVIPS_API_KEY_MINIMAX` 的值。开始写入...」
 
@@ -179,8 +190,8 @@ python3 ~/.hermes/bin/hermes_switch_model.py <标识>
 
 **命名规范（新增模型时遵循）**：
 
-- **provider name**：`平台-模型系列`，全小写，中划线
-- **env 变量**：`平台_标识_API_KEY`，全大写，下划线
+- **provider name**：`平台-模型系列`，全小写，中划线分隔
+- **env 变量**：`平台_标识_API_KEY`，全大写，下划线分隔
 - **alias**：简短英文小写
 
 ## 目录结构
@@ -193,8 +204,11 @@ hermes-model-switch/
 ├── scripts/
 │   └── hermes_switch_model.py   # 模型切换脚本（含增删改查逻辑）
 ├── skill/
-│   └── hermes-model-switch/    # 完整技能文档（切换 + 增删改查）
-│       └── SKILL.md
+│   └── hermes-model-switch/   # 完整技能文档
+│       ├── SKILL.md
+│       └── references/         # 参考文档
+│           ├── quickstart.md
+│           └── bug5-backup-content-mismatch.md
 └── tools/
     └── model-diagnosis.py       # API Key 诊断工具
 ```
