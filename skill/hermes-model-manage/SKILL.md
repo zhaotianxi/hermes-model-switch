@@ -1,6 +1,6 @@
 ---
 name: hermes-model-manage
-description: 管理 hermes-model-switch 技能中的模型配置列表，支持增、删、改、查四项操作。触发词：「加一个模型」「加个新模型」「新增模型」「添加模型」「删除模型」「删掉模型」「修改模型配置」「改一下模型」「换个模型」「查一下模型」「有哪些模型」「模型列表」
+description: 管理 hermes-model-switch 技能中的模型配置列表，支持增、删、改、查四项操作，以及 API Key 的修改。触发词：「加一个模型」「加个新模型」「新增模型」「添加模型」「删除模型」「删掉模型」「修改模型配置」「改一下模型」「换个模型」「查一下模型」「有哪些模型」「模型列表」「修改env」「更新env」「换个API Key」「API Key不对」
 ---
 
 # hermes-model-manage
