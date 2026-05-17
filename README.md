@@ -9,13 +9,12 @@ Hermes Agent 模型切换工具集，支持多模型的一键切换、自动路�
 | 技能 | 用途 | 触发词 |
 |------|------|--------|
 | `hermes-model-switch` | 手动切换模型 | 切换到 GPT / GLM / MiniMax / DeepSeek |
-| `hermes-model-manage` | 模型的增删改查 | 加模型 / 删模型 / 改模型 / 查模型列表 |
-| `env-param` | 修改 API Key 等参数 | 修改 env / 更新 API Key |
+| `hermes-model-manage` | 模型的增删改查 + API Key 修改 | 加模型 / 删模型 / 改模型 / 查模型列表 / 修改 API Key |
 
 ```
 用户说"切换到GLM"  → hermes-model-switch
 用户说"加一个新模型" → hermes-model-manage
-用户说"换个API Key" → env-param
+用户说"换个API Key" → hermes-model-manage
 ```
 
 ## 安装
@@ -139,8 +138,7 @@ hermes-model-switch/
 │   └── hermes_switch_model.py   # 模型切换脚本
 ├── skill/
 │   ├── hermes-model-switch/     # 切换技能文档
-│   ├── hermes-model-manage/     # 增删改查技能文档
-│   └── env-param/              # 环境变量修改文档
+│   └── hermes-model-manage/     # 增删改查技能文档（含 API Key 修改）
 └── tools/
     └── model-diagnosis.py       # API Key 诊断工具
 ```
