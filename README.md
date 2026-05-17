@@ -1,6 +1,6 @@
 # hermes-model-switch
 
-Hermes Agent 模型切换工具集，支持多模型的一键切换、增删改查管理。
+Hermes Agent 大模型配置管理工具，支持模型切换和增删改查。
 
 ## 功能特性
 
@@ -9,19 +9,6 @@ Hermes Agent 模型切换工具集，支持多模型的一键切换、增删改�
 - **model_aliases 同步**：切换时同步更新别名路由，避免请求走错 provider
 - **配置二次验证**：写入后重新读回确认关键字段正确
 - **备份机制**：每次切换自动备份，保留历史版本
-
-## 组件概览
-
-| 技能 | 用途 | 触发词 |
-|------|------|--------|
-| `hermes-model-switch` | 手动切换模型 | 切换到 GPT / GLM / MiniMax / DeepSeek |
-| `hermes-model-manage` | 模型的增删改查 + API Key 修改 | 加模型 / 删模型 / 改模型 / 查模型列表 / 修改 API Key |
-
-```
-用户说"切换到GLM"  → hermes-model-switch
-用户说"加一个新模型" → hermes-model-manage
-用户说"换个API Key" → hermes-model-manage
-```
 
 ## 安装
 
@@ -80,9 +67,7 @@ curl -s https://api.svips.org/v1/chat/completions \
 
 ### 第三步：二次验证
 
-写入后重新读回 `config.yaml`，确认关键字段（default / provider / api_key）与预期一致。
-
-不一致时自动还原备份并报错，**保证配置不会写坏**。
+写入后重新读回 `config.yaml`，确认关键字段（default / provider / api_key）与预期一致。不一致时自动还原备份并报错，**保证配置不会写坏**。
 
 ### 完整流程图
 
@@ -151,23 +136,27 @@ python3 ~/.hermes/bin/hermes_switch_model.py <标识>
 
 ### 删除模型
 
-用户提供要删除的模型标识，我从 `TARGETS`、`PROVIDER_DEFS`、`ALIAS_UPDATES` 三处删除对应条目。
+用户提供要删除的模型标识，从 `TARGETS`、`PROVIDER_DEFS`、`ALIAS_UPDATES` 三处删除对应条目，`.env` 中的 key 建议保留。
 
 示例交互：
 
 > 用户：「把 DeepSeek 从切换列表里删掉」
 >
-> 我：「好的，删除标识 `ds` 相关配置，同时保留 `.env` 中的 key 以备不时之需。开始修改...」
+> 我：「好的，删除标识 `ds` 相关配置，`.env` 中的 key 保留。开始修改...」
 
 ### 修改模型配置
 
-用户提供要改的模型和要改的内容，我只修改对应的字段值。
+用户提供要改的模型和要改的内容，只修改对应的字段值。
 
 示例交互：
 
 > 用户：「把 GLM 的验证模型改成 `glm-4-plus`」
 >
 > 我：「好，只改 `TARGETS['glm']['verify_model']` 这一处，其他不动。开始修改...」
+
+> 用户：「换个 API Key，MiniMax 的 key 换成 `sk-new-key-xxx`」
+>
+> 我：「好，修改 `.env` 中 `SVIPS_API_KEY_MINIMAX` 的值。开始写入...」
 
 ### 查看当前模型列表
 
@@ -202,25 +191,12 @@ hermes-model-switch/
 ├── CHANGELOG.md
 ├── LICENSE
 ├── scripts/
-│   └── hermes_switch_model.py   # 模型切换脚本（含切换流程逻辑）
+│   └── hermes_switch_model.py   # 模型切换脚本（含增删改查逻辑）
 ├── skill/
-│   ├── hermes-model-switch/     # 切换技能文档
-│   ├── hermes-model-manage/     # 增删改查技能文档（含 API Key 修改）
-│   └── references/
-│       ├── quickstart.md
-│       └── bug5-backup-content-mismatch.md
+│   └── hermes-model-switch/    # 完整技能文档（切换 + 增删改查）
+│       └── SKILL.md
 └── tools/
     └── model-diagnosis.py       # API Key 诊断工具
-```
-
-## 工作流程
-
-```
-用户消息
-  │
-  ├── "切换到GPT"       → hermes-model-switch  → 预验证 → 写配置
-  ├── "加一个新模型"    → hermes-model-manage → 增删改
-  └── "换个API Key"     → hermes-model-manage → 改 .env
 ```
 
 ## 开发约定
