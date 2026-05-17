@@ -9,13 +9,11 @@ Hermes Agent 模型切换工具集，支持多模型的一键切换、自动路�
 | 技能 | 用途 | 触发词 |
 |------|------|--------|
 | `hermes-model-switch` | 手动切换模型 | 切换到 GPT / GLM / MiniMax / DeepSeek |
-| `hermes-model-router` | 按任务复杂度自动路由 | 复杂任务 / 简单任务 / 默认路由 |
 | `hermes-model-manage` | 模型的增删改查 | 加模型 / 删模型 / 改模型 / 查模型列表 |
 | `env-param` | 修改 API Key 等参数 | 修改 env / 更新 API Key |
 
 ```
 用户说"切换到GLM"  → hermes-model-switch
-用户说"这类任务默认走GLM" → hermes-model-router
 用户说"加一个新模型" → hermes-model-manage
 用户说"换个API Key" → env-param
 ```
@@ -115,21 +113,7 @@ python3 ~/.hermes/bin/hermes_switch_model.py <标识>
 >
 > 我：「当前支持4个模型：GPT-5.4 (gpt)、GLM-5.1 (glm)、MiniMax (minimax)、DeepSeek (ds)」
 
-### 自动路由（hermes-model-router）
-
-默认按任务复杂度自动选模型：
-
-- **简单任务 → MiniMax**：润色、改写、短摘要、轻量问答
-- **复杂任务 → GLM**：报告、总结、规划、正式汇报材料
-- **失败自动切换**：主模型连续失败2次切备用模型
-
-用户可通过自然语言持续微调路由规则：
-
-> 用户：「以后方案设计类的任务都默认走 GLM」
->
-> 我：「好，把方案设计加入 GLM 路由规则」
-
-## 现有模型参考
+### 查看当前模型列表
 
 | 标识 | provider | env 变量 |
 |------|----------|----------|
@@ -155,9 +139,8 @@ hermes-model-switch/
 │   └── hermes_switch_model.py   # 模型切换脚本
 ├── skill/
 │   ├── hermes-model-switch/     # 切换技能文档
-│   ├── hermes-model-router/     # 自动路由技能文档
 │   ├── hermes-model-manage/     # 增删改查技能文档
-│   └── env-param/               # 环境变量修改文档
+│   └── env-param/              # 环境变量修改文档
 └── tools/
     └── model-diagnosis.py       # API Key 诊断工具
 ```
@@ -168,7 +151,6 @@ hermes-model-switch/
 用户消息
   │
   ├── "切换到GPT"       → hermes-model-switch  → 预验证 → 写配置
-  ├── "这类任务走GLM"   → hermes-model-router → 更新路由规则
   ├── "加一个新模型"    → hermes-model-manage → 增删改
   └── "换个API Key"     → env-param           → 改 .env
 ```
