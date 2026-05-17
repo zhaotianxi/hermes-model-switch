@@ -2,196 +2,203 @@
 name: hermes-model-switch
 description: |
   管理和切换 Hermes Agent 的大模型配置。支持：
-  - 切换模型（GPT / GLM / MiniMax / DeepSeek），预验证+自动回退+二次验证
-  - 配置增删改查（添加新模型 / 删除模型 / 修改配置 / 列出当前模型）
-  - 修改 API Key（精准替换 .env 中指定模型的 key）
-  触发词：切换、gpt、glm、minimax、ds、deepseek、加模型、删模型、改模型、改key、查模型、查看模型列表
+  - 切换模型（GPT / GLM / MiniMax / DeepSeek），预验证 + dry-run + 备份 + 二次验证 + 可选 smoke test
+  - 查看当前模型 / 列出模型 / 验证模型 / 列出备份 / 回退备份
+  - 兼容旧入口：python3 ~/.hermes/bin/hermes_switch_model.py <mode>
+  触发词：切换、gpt、glm、minimax、ds、deepseek、dry-run、查模型、当前模型、回退备份、查看备份
 ---
 
 # hermes-model-switch
 
-模型切换 + 配置管理统一技能。
+## 对外版本
 
-## 工作原理
+当前对外版本按 semver 管理，现行为 **1.1.0**。历史文档里的 v6 / v7 是修复阶段编号，不再作为主版本号。
 
-```
-用户触发切换
-     │
-     ▼
-第一步：curl 预验证模型可达性
-     │
-  ┌──┴──┐
-  │     │
-失败   通过
-  │     │
-  │     ▼
-  │ 第二步：备份配置 → 更新 config.yaml（三处同步）
-  │     │
-  │     ▼
-  │ 第三步：二次验证关键字段
-  │     │
-  │  ┌──┴──┐
-  │  │     │
-  │失败  通过
-  │  │     │
-  │  ▼     ▼
-  │回退   完成，新会话生效
-  ▼
-  还原备份，报错退出
-```
+## 核心命令
 
-## 切换操作
-
-### 预验证（第一步）
-
-用 curl 测试目标模型是否可达，返回含 `"choices"` 即为通过：
+### 列出支持模型
 
 ```bash
-curl -s https://api.svips.org/v1/chat/completions \
-  -H "Authorization: Bearer ${SVIPS_API_KEY_MINIMAX}" \
-  -H "Content-Type: application/json" \
-  -d '{"model":"MiniMax-M2.7-highspeed","messages":[{"role":"user","content":"hi"}],"max_tokens":5}'
+hermes-model-switch list
 ```
 
-返回 `503` / `401` / `ModelNotOpen` 等均为验证失败，**不写配置，直接退出**。
-
-### 执行切换（第二步）
-
-验证通过后，脚本同时更新三处：
-
-1. `model.default` / `provider` / `base_url` / `api_key`（主配置）
-2. `custom_providers` 列表中的 provider 条目
-3. `model_aliases` 中对应 alias 的 provider/base_url/model（避免路由断裂）
-
-同时自动备份当前配置到 `~/.hermes/backups/`。
-
-### 二次验证（第三步）
-
-写入后重新读回 `config.yaml`，确认关键字段与预期一致。不一致时自动还原备份并报错。
-
-## 切换命令
+### 查看当前模型
 
 ```bash
-python3 ~/.hermes/bin/hermes_switch_model.py <标识>
+hermes-model-switch current
 ```
 
-| 标识 | 模型 | 实际 model 值 |
-|------|------|---------------|
-| `gpt` | GPT-5.4 | `gpt-5.4` |
-| `glm` | GLM-5.1 | `GLM-5.1` |
-| `minimax` | MiniMax-M2.7-highspeed | `MiniMax-M2.7-highspeed` |
-| `ds` | DeepSeek-v4-flash | `deepseek-v4-flash` |
+### 预验证目标模型
 
-切换后**新会话生效**。
+```bash
+hermes-model-switch verify gpt
+hermes-model-switch verify glm
+hermes-model-switch verify minimax
+hermes-model-switch verify ds
+```
 
-## 配置管理
+### dry-run
 
-### 添加新模型
+```bash
+hermes-model-switch switch glm --dry-run
+```
 
-用户提供 base_url、model_id、api_key，按规范生成命名并修改脚本。
+### 执行切换
 
-**命名规范**：
+```bash
+hermes-model-switch switch gpt
+hermes-model-switch switch glm
+hermes-model-switch switch minimax
+hermes-model-switch switch ds
+```
 
-| 信息 | 规则 | 示例 |
-|------|------|------|
-| provider name | `<平台>-<模型系列>` 全小写，中划线分隔 | `anthropic-claude` |
-| env 变量 | `<平台>_<标识>_API_KEY` 全大写，下划线分隔 | `ANTHROPIC_API_KEY_CLAUDE` |
-| alias | 简短英文小写 | `claude` |
+### 切换后做 Hermes smoke test
 
-**执行步骤**：
+```bash
+hermes-model-switch switch gpt --smoke-test
+```
 
-1. 生成变量名，写入 `~/.hermes/.env`
-2. 在 `TARGETS` 字典添加条目（provider / base_url / verify_model / alias）
-3. 在 `PROVIDER_DEFS` 列表添加 provider 定义
-4. 在 `ALIAS_UPDATES` 列表添加别名同步条目
-5. 本地提交
+### 查看备份
 
-示例交互：
+```bash
+hermes-model-switch backup list
+```
 
-> 用户：「给我加一个 Claude 模型，baseurl 是 `https://api.anthropic.com/v1`，modelid 是 `claude-sonnet-4`，apikey 是 `sk-ant-xxx`」
->
-> 我：「好，我来按规范添加。provider 命名为 `anthropic-claude`，变量名 `ANTHROPIC_API_KEY_CLAUDE`，alias `claude`。开始写入配置...」
+### 回退备份
 
-### 删除模型
+```bash
+hermes-model-switch rollback <backup_id>
+```
 
-用户提供要删除的模型标识，从脚本三处移除对应条目：
+## 兼容旧入口
 
-1. `TARGETS` 字典
-2. `PROVIDER_DEFS` 列表
-3. `ALIAS_UPDATES` 列表
+```bash
+python3 ~/.hermes/bin/hermes_switch_model.py gpt
+```
 
-`.env` 中的 key 建议保留。
+等价于：
 
-示例交互：
+```bash
+hermes-model-switch switch gpt
+```
 
-> 用户：「把 DeepSeek 从切换列表里删掉」
->
-> 我：「好的，删除标识 `ds` 相关配置，`.env` 中的 key 保留。开始修改...」
+## 当前实现要点
 
-### 修改模型配置
+1. 切换前验证目标模型可达
+2. 写入前获取文件锁，避免并发写 `config.yaml`
+3. 切换时同步更新三处：
+   - `model`
+   - `custom_providers`
+   - `model_aliases`
+4. 切换前创建目录式备份：
+   - `~/.hermes/backups/<backup_id>/config.yaml`
+   - `~/.hermes/backups/<backup_id>/meta.json`
+5. 写入后读回校验关键字段
+6. 开启 `--smoke-test` 时，额外执行：
+   - `hermes chat -q "只回复 OK" -Q`
+7. smoke test 失败自动回退
 
-用户提供要改的模型和要改的内容，只修改对应字段。
+## 模型配置管理（增删改查）
 
-**改 verify_model**：
-只改 `TARGETS[<标识>]['verify_model']`，其他不动。
+当前实现把模型定义统一收敛到：
 
-> 用户：「把 GLM 的验证模型改成 `glm-4-plus`」
->
-> 我：「好，只改 verify_model 这一处，其他不动。开始修改...」
+- `src/hermes_model_switch/model_specs.py`
 
-**改 API Key**：
-修改 `~/.hermes/.env` 中对应变量的值。
+其中核心对象是 `MODEL_SPECS`。模型配置的单一事实源就在这里。
 
-> 用户：「换个 API Key，MiniMax 的 key 换成新值」
->
-> 我：「好，修改 `.env` 中 `SVIPS_API_KEY_MINIMAX` 的值。开始写入...」
+### 查
 
-### 查看当前模型列表
+- 用户侧：`hermes-model-switch list`、`hermes-model-switch current`
+- 代码侧：`iter_specs()`、`get_spec(mode)`、`mode_from_default(default_model)`
 
-读取 `~/.hermes/bin/hermes_switch_model.py`，提取 `TARGETS` 字典，输出格式化表格。
+### 增
 
-示例交互：
+新增模型时，直接在 `MODEL_SPECS` 中新增一个条目。
 
-> 用户：「现在支持哪些模型？」
->
-> 我：「当前支持4个模型：GPT-5.4 (gpt)、GLM-5.1 (glm)、MiniMax (minimax)、DeepSeek (ds)」
+### 改
 
-## 现有模型参考
+修改模型时，直接调整 `MODEL_SPECS` 中对应条目。
 
-| 标识 | provider | env 变量 |
-|------|----------|----------|
-| `gpt` | `custom:modelverse-gpt` | `MODELVERSE_API_KEY_GPT` |
-| `glm` | `custom:svips-glm` | `SVIPS_API_KEY_GLM` |
-| `minimax` | `custom:svips-minimax` | `SVIPS_API_KEY_MINIMAX` |
-| `ds` | `custom:chudian-deepseek` | `CHUDIAN_API_KEY_DEEPSEEK` |
+CLI 会通过以下函数自动派生最终写入配置：
 
-## 切换脚本结构
+- `build_main_model_config(spec)`
+- `build_provider_def(spec)`
+- `build_alias_update(spec)`
 
-脚本中三处配置含义：
+### 删
 
-- **`TARGETS`**：切换目标配置（provider name、base_url、验证模型名、alias）
-- **`PROVIDER_DEFS`**：custom_providers 列表中每个 provider 的完整定义（base_url、api_key、id）
-- **`ALIAS_UPDATES`**：model_aliases 中每个 alias 需要同步更新的字段（provider、base_url、model）
+删除模型时，直接从 `MODEL_SPECS` 中删除对应条目。
 
-切换时三处必须保持一致，删除时三处必须同时删除。
+> 注意：当前实现的“删”不会自动清理用户现有 `config.yaml` 里旧的 `custom_providers` 或 `model_aliases` 残留项。
 
-## 备份机制
+## 示例
 
-每次切换前自动备份 `~/.hermes/config.yaml` 到 `~/.hermes/backups/hermes_config_YYYYMMDD_HHMMSS.yaml`。
+### 新增模型示例（qwen）
 
-切换后二次验证失败时自动还原备份，保证配置不会写坏。
+```python
+"qwen": {
+    "label": "Qwen-Plus",
+    "default": "qwen-plus",
+    "provider_name": "aliyun-qwen",
+    "provider_ref": "custom:aliyun-qwen",
+    "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    "api_key_env": "DASHSCOPE_API_KEY_QWEN",
+    "verify_model": "qwen-plus",
+    "alias": "qwen",
+    "models": {
+        "qwen-plus": {
+            "context_length": 128000
+        }
+    },
+},
+```
 
-## 故障排除
+加完后，`list / verify / switch` 会自动支持该模型。
 
-**切换后模型没变**：
-- 确认是**新会话**（新开对话窗口），当前会话读取的是启动时的快照
-- 检查 `config.yaml` 中 `model.default` 是否已更新
+### config.yaml 示例片段
 
-**验证通过但切换失败**：
-- 查看 `~/.hermes/backups/` 是否有备份文件
-- 检查 `config.yaml` 语法是否正确（`yaml.parse` 会报错）
+```yaml
+model:
+  default: gpt-5.4
+  provider: custom:modelverse-gpt
+  base_url: https://api.modelverse.cn/v1
+  api_key: ${MODELVERSE_API_KEY_GPT}
+```
 
-**curl 预验证失败**：
-- 检查 API Key 是否正确（参考 `tools/model-diagnosis.py`）
-- 检查 base_url 是否正确
-- 检查网络是否可达
+### .env 示例片段
+
+```dotenv
+MODELVERSE_API_KEY_GPT=sk-your-gpt-key
+SVIPS_API_KEY_GLM=sk-your-glm-key
+```
+
+## 备份结构
+
+```text
+~/.hermes/backups/
+  20260517T132500Z-gpt/
+    config.yaml
+    meta.json
+```
+
+`meta.json` 记录：
+- `backup_id`
+- `created_at`
+- `source_default`
+- `source_mode`
+- `target_mode`
+
+## 模型定义来源
+
+当前实现不再维护三份重复配置，而是统一由 `src/hermes_model_switch/model_specs.py` 中的 `MODEL_SPECS` 作为单一事实源，再派生：
+
+- 主配置 `model`
+- `custom_providers`
+- `model_aliases`
+
+## 项目边界
+
+- 不自动切 OpenClaw
+- 不创建 API Key
+- 不保证当前会话热切换
+- 不处理 `.env` 加密

@@ -1,0 +1,36 @@
+# Example Hermes config.yaml
+
+model:
+  default: gpt-5.4
+  provider: custom:modelverse-gpt
+  base_url: https://api.modelverse.cn/v1
+  api_key: ${MODELVERSE_API_KEY_GPT}
+
+custom_providers:
+  - name: modelverse-gpt
+    base_url: https://api.modelverse.cn/v1
+    api_key: ${MODELVERSE_API_KEY_GPT}
+    model: gpt-5.4
+    models:
+      gpt-5.4:
+        context_length: 200000
+  - name: svips-glm
+    base_url: https://api.svips.org/v1
+    api_key: ${SVIPS_API_KEY_GLM}
+    model: GLM-5.1
+    models:
+      GLM-5.1:
+        context_length: 200000
+        max_output_tokens: 200000
+
+model_aliases:
+  gpt:
+    provider: custom:modelverse-gpt
+    base_url: https://api.modelverse.cn/v1
+    model: gpt-5.4
+    api_key: ${MODELVERSE_API_KEY_GPT}
+  glm:
+    provider: custom:svips-glm
+    base_url: https://api.svips.org/v1
+    model: GLM-5.1
+    api_key: ${SVIPS_API_KEY_GLM}
